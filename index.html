@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Systems Simulation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@2.0.7/css/boxicons.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header>
+        <div class="container">
+            <h1>Engineering Systems Simulation</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <nav class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('theory')">System Theory</button>
+            <button class="tab-btn" onclick="switchTab('single-sim')">Single-server Queue Simulation </button>
+            <button class="tab-btn" onclick="switchTab('multi-sim')">Multi-server Queue Simulation </button>
+            <button class="tab-btn" onclick="switchTab('inventory')">Inventory Simulation </button>
+            <button class="tab-btn" onclick="switchTab('rng')">Random Number Generator</button>
+        </nav>
+
+        <!-- 1. QUEUING THEORY -->
+        <section id="theory" class="section active">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Queuing Fundamentals</h2>
+                    <p>Queuing theory analyzes "waiting for service." The system consists of the <strong>Calling
+                            Population</strong>, the <strong>Queue Discipline</strong> (usually FCFS), and the
+                        <strong>Service Facility</strong>.
+                    </p>
+
+                    <h3>Performance Measures</h3>
+                    <ul>
+                        <li><strong>L<sub>s</sub></strong>: Exp. number of customers in system.</li>
+                        <li><strong>L<sub>q</sub></strong>: Exp. number of customers in queue.</li>
+                        <li><strong>W<sub>s</sub></strong>: Exp. time spent in system.</li>
+                        <li><strong>W<sub>q</sub></strong>: Exp. time spent in queue.</li>
+                        <li><strong>R (Utilization)</strong>: % of time server is busy ($\lambda/\mu$).</li>
+                        <li><strong>P<sub>0</sub> (Idle)</strong>: Prob. of no customers ($1 - R$).</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h2>Analytical Calculator</h2>
+                    <p>Metrics for single-server (Poisson arrivals, Exponential service).</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label>Arrival Rate ($\lambda$):</label>
+                            <input type="number" id="calc-lambda" value="4" oninput="calculateAnalytical()">
+                        </div>
+                        <div>
+                            <label>Service Rate ($\mu$):</label>
+                            <input type="number" id="calc-mu" value="5" oninput="calculateAnalytical()">
+                        </div>
+                    </div>
+
+                    <div class="formula" id="analytical-results">
+                        Utilization (R): 80%<br>
+                        Lq (Queue Length): 3.20<br>
+                        Wq (Wait in Queue): 0.80 hr<br>
+                        Ws (Wait in System): 1.00 hr
+                    </div>
+                    <p id="traffic-warning" style="color:var(--accent-danger); display:none; font-weight:bold;">⚠️
+                        System Unstable: $\lambda \ge \mu$ (Infinite Queue)</p>
+
+                    <h3>Cost Model</h3>
+                    <div style="display:flex; gap:15px;">
+                        <div style="flex:1"><label>Server Cost (C1):</label><input type="number" id="cost-c1" value="10"
+                                oninput="calculateAnalytical()"></div>
+                        <div style="flex:1"><label>Wait Cost (C2):</label><input type="number" id="cost-c2" value="5"
+                                oninput="calculateAnalytical()"></div>
+                    </div>
+                    <!-- <p><strong>Total Cost = C1 × Servers + C2 × Ls</strong></p> -->
+                    <h3 id="total-cost-display" style="color:var(--accent-success); border:none;">Total Cost: $30.00 /
+                        hr</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. SINGLE SERVER SIMULATION -->
+        <section id="single-sim" class="section">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Simulation Setup</h2>
+                    <p>Configure the parameters. Clock advances based on Interarrival Times.</p>
+
+                    <label>Number of Customers:</label>
+                    <input type="number" id="sim-count" value="20">
+
+                    <label>Interarrival Time (Min-Max):</label>
+                    <div style="display:flex; gap:10px;">
+                        <input type="number" id="arrival-min" value="1" placeholder="Min">
+                        <input type="number" id="arrival-max" value="8" placeholder="Max">
+                    </div>
+
+                    <label>Service Time (Min-Max):</label>
+                    <div style="display:flex; gap:10px;">
+                        <input type="number" id="service-min" value="1" placeholder="Min">
+                        <input type="number" id="service-max" value="6" placeholder="Max">
+                    </div>
+
+                    <button class="action-btn" onclick="runSingleServerSim()">Run Simulation</button>
+                </div>
+
+                <div class="card">
+                    <h2>Performance Stats</h2>
+                    <div class="grid-2" style="grid-template-columns: 1fr 1fr; margin-top: 10px;">
+                        <div class="stat-box">
+                            <div class="stat-val" id="ss-avg-wait">0.0</div>
+                            <div class="stat-label">Avg Wait (min)</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-val" id="ss-util">0%</div>
+                            <div class="stat-label">Utilization</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-val" id="ss-idle">0</div>
+                            <div class="stat-label">Total Idle (min)</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-val" id="ss-prob-wait">0%</div>
+                            <div class="stat-label">Wait Prob.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Simulation Mesh Table</h2>
+                <div class="table-container">
+                    <table id="ss-table">
+                        <thead>
+                            <tr>
+                                <th>Cust</th>
+                                <th>Interarrival</th>
+                                <th>Arr. Clock</th>
+                                <th>Svc Time</th>
+                                <th>Svc Start</th>
+                                <th>Svc End</th>
+                                <th>Wait Queue</th>
+                                <th>Time System</th>
+                                <th>Idle Server</th>
+                            </tr>
+                        </thead>
+                        <tbody><!-- JS populates this --></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. MULTI-SERVER SIMULATION -->
+        <section id="multi-sim" class="section">
+            <div class="card">
+                <h2>Multi-Server Logic (Able & Baker)</h2>
+                <p style="margin-bottom: 20px;">Two servers logic. <strong>Able</strong> (Exp) takes priority.
+                    <strong>Baker</strong> (Novice) takes if Able busy.
+                </p>
+                <button class="action-btn" onclick="runMultiServerSim()">Run Able & Baker Simulation (50 Pax)</button>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Server Able Stats</h3>
+                    <div class="stat-box">
+                        <div class="stat-val" id="ms-able-util">0%</div>
+                        <div class="stat-label">Utilization</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Server Baker Stats</h3>
+                    <div class="stat-box">
+                        <div class="stat-val" id="ms-baker-util">0%</div>
+                        <div class="stat-label">Utilization</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Track Record</h2>
+                <div class="table-container">
+                    <table id="ms-table">
+                        <thead>
+                            <tr>
+                                <th>Cust</th>
+                                <th>Arrival Clock</th>
+                                <th>Server</th>
+                                <th>Start</th>
+                                <th>Duration</th>
+                                <th>End</th>
+                                <th>Wait</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. INVENTORY SIMULATION -->
+        <section id="inventory" class="section">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>(M, N) Inventory Policy</h2>
+                    <p>Review every <strong>N</strong> days. Order up to <strong>M</strong>. <br>Order = M - EndInv +
+                        Shortage.</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div><label>Std Level (M):</label><input type="number" id="inv-m" value="11"></div>
+                        <div><label>Review (N):</label><input type="number" id="inv-n" value="5"></div>
+                    </div>
+                    <label>Initial Inventory:</label>
+                    <input type="number" id="inv-start" value="3">
+
+                    <button class="action-btn" onclick="runInventorySim()">Simulate 20 Days</button>
+                </div>
+
+                <div class="card">
+                    <h3>Daily Levels Visualization</h3>
+                    <div id="inv-chart" class="bar-chart">
+                        <!-- Bars injected via JS -->
+                    </div>
+                    <div style="margin-top:10px; font-size:0.8rem; text-align:center; color:var(--secondary);">
+                        Daily Ending Inventory
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Inventory Log</h2>
+                <div class="table-container">
+                    <table id="inv-table">
+                        <thead>
+                            <tr>
+                                <th>Cycle</th>
+                                <th>Day</th>
+                                <th>Beg Inv</th>
+                                <th>Demand</th>
+                                <th>End Inv</th>
+                                <th>Shortage</th>
+                                <th>Order Qty</th>
+                                <th>Lead Time</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. RNG & TESTING -->
+        <section id="rng" class="section">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Random Number Generator (LCG)</h2>
+                    <div class="formula">Z<sub>i</sub> = (aZ<sub>i-1</sub> + c) mod m</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                        <div><label>Mult (a)</label><input type="number" id="lcg-a" value="5"></div>
+                        <div><label>Inc (c)</label><input type="number" id="lcg-c" value="3"></div>
+                        <div><label>Mod (m)</label><input type="number" id="lcg-m" value="16"></div>
+                    </div>
+                    <label>Seed (Z<sub>0</sub>)</label><input type="number" id="lcg-seed" value="7">
+                    <button class="action-btn" onclick="generateLCG()">Generate Sequence</button>
+                    <div id="lcg-output"
+                        style="margin-top:15px; font-family:'JetBrains Mono', monospace; word-break:break-all; color:var(--accent-purple);">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Uniformity Test (Chi-Square)</h2>
+                    <div class="formula">$\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}$</div>
+
+                    <button class="action-btn" onclick="runChiSquare()">Run Test (100 Samples)</button>
+
+                    <div id="chi-result" style="margin-top:15px; font-weight:bold;"></div>
+
+                    <div class="table-container" style="max-height: 200px; margin-top: 15px;">
+                        <table id="chi-table">
+                            <thead>
+                                <tr>
+                                    <th>Interval</th>
+                                    <th>Obs (Oi)</th>
+                                    <th>Exp (Ei)</th>
+                                    <th>Calc</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
