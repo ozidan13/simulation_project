@@ -32,24 +32,59 @@
         </nav>
 
         <!-- 1. QUEUING THEORY -->
+        <!-- 1. MATHEMATICAL MODELS & ALGORITHMS (THEORY) -->
         <section id="theory" class="section active">
             <div class="grid-2">
+                <!-- QUEUING ANALYTICS -->
                 <div class="card">
-                    <h2>Queuing Fundamentals</h2>
-                    <p>Queuing theory analyzes "waiting for service." The system consists of the <strong>Calling
-                            Population</strong>, the <strong>Queue Discipline</strong> (usually FCFS), and the
-                        <strong>Service Facility</strong>.
-                    </p>
+                    <h2><i class='bx bx-calculator'></i> Queuing Formulas (Analytic)</h2>
+                    <p class="subtitle">Mathematical laws for Single-Server (M/M/1) systems.</p>
 
-                    <h3>Performance Measures</h3>
-                    <ul>
-                        <li><strong>L<sub>s</sub></strong>: Exp. number of customers in system.</li>
-                        <li><strong>L<sub>q</sub></strong>: Exp. number of customers in queue.</li>
-                        <li><strong>W<sub>s</sub></strong>: Exp. time spent in system.</li>
-                        <li><strong>W<sub>q</sub></strong>: Exp. time spent in queue.</li>
-                        <li><strong>R (Utilization)</strong>: % of time server is busy ($\lambda/\mu$).</li>
-                        <li><strong>P<sub>0</sub> (Idle)</strong>: Prob. of no customers ($1 - R$).</li>
-                    </ul>
+                    <div class="formula-block">
+                        <div class="formula-row">
+                            <span class="var">λ (Lambda)</span>
+                            <span class="desc">Arrival Rate (cust/time)</span>
+                        </div>
+                        <div class="formula-row">
+                            <span class="var">μ (Mu)</span>
+                            <span class="desc">Service Rate (cust/time)</span>
+                        </div>
+                    </div>
+
+                    <h3>Performance Laws</h3>
+                    <div class="formula-list">
+                        <div class="f-item">
+                            <span class="f-name">Utilization (R):</span>
+                            <span class="f-math">R = λ / μ</span>
+                        </div>
+                        <div class="f-item">
+                            <span class="f-name">Prob(Idle) (P₀):</span>
+                            <span class="f-math">P₀ = 1 - R</span>
+                        </div>
+                        <div class="f-item">
+                            <span class="f-name">Avg in System (Lₛ):</span>
+                            <span class="f-math">Lₛ = λ / (μ - λ)</span>
+                        </div>
+                        <div class="f-item">
+                            <span class="f-name">Avg in Queue (Lq):</span>
+                            <span class="f-math">Lq = λ² / [μ(μ - λ)]</span>
+                        </div>
+                        <div class="f-item">
+                            <span class="f-name">Wait in System (Wₛ):</span>
+                            <span class="f-math">Wₛ = 1 / (μ - λ)</span>
+                        </div>
+                        <div class="f-item">
+                            <span class="f-name">Wait in Queue (Wq):</span>
+                            <span class="f-math">Wq = λ / [μ(μ - λ)]</span>
+                        </div>
+                    </div>
+
+                    <h3>Cost Model Law</h3>
+                    <div class="formula">T.C. = (C₁ × C) + (C₂ × Lₛ)</div>
+                    <p style="font-size:0.85rem; color:var(--text-muted);">
+                        Where <strong>C₁</strong> = Server Cost, <strong>C</strong> = Num Servers, <strong>C₂</strong> =
+                        Wait Cost.
+                    </p>
                 </div>
 
                 <div class="card">
@@ -57,41 +92,86 @@
                     <p>Metrics for single-server (Poisson arrivals, Exponential service).</p>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div>
-                            <label>Arrival Rate ($\lambda$):</label>
-                            <input type="number" id="calc-lambda" value="4" oninput="calculateAnalytical()">
-                        </div>
-                        <div>
-                            <label>Service Rate ($\mu$):</label>
-                            <input type="number" id="calc-mu" value="5" oninput="calculateAnalytical()">
-                        </div>
+                        <div><label>λ (Arr):</label><input type="number" id="calc-lambda" value="4"
+                                oninput="calculateAnalytical()"></div>
+                        <div><label>μ (Svc):</label><input type="number" id="calc-mu" value="5"
+                                oninput="calculateAnalytical()"></div>
                     </div>
 
-                    <div class="formula" id="analytical-results">
-                        Utilization (R): 80%<br>
-                        Lq (Queue Length): 3.20<br>
-                        Wq (Wait in Queue): 0.80 hr<br>
-                        Ws (Wait in System): 1.00 hr
-                    </div>
+                    <div class="formula" id="analytical-results">Results will appear here...</div>
                     <p id="traffic-warning" style="color:var(--accent-danger); display:none; font-weight:bold;">⚠️
-                        System Unstable: $\lambda \ge \mu$ (Infinite Queue)</p>
+                        System Unstable: λ ≥ μ</p>
 
-                    <h3>Cost Model</h3>
+                    <h3>Cost Inputs</h3>
                     <div style="display:flex; gap:15px;">
                         <div style="flex:1"><label>Server Cost (C1):</label><input type="number" id="cost-c1" value="10"
                                 oninput="calculateAnalytical()"></div>
                         <div style="flex:1"><label>Wait Cost (C2):</label><input type="number" id="cost-c2" value="5"
                                 oninput="calculateAnalytical()"></div>
                     </div>
-                    <!-- <p><strong>Total Cost = C1 × Servers + C2 × Ls</strong></p> -->
-                    <h3 id="total-cost-display" style="color:var(--accent-success); border:none;">Total Cost: $30.00 /
-                        hr</h3>
+                    <h3 id="total-cost-display" style="color:var(--accent-success); border:none; margin-top:20px;"></h3>
                 </div>
             </div>
         </section>
 
         <!-- 2. SINGLE SERVER SIMULATION -->
         <section id="single-sim" class="section">
+            <!-- Inserted: Simulation Logic (The Mesh) -->
+            <div class="card" style="margin-bottom:25px;">
+                <h2><i class='bx bx-list-ol'></i> Simulation Logic (The Mesh)</h2>
+                <div class="grid-2">
+                    <div>
+                        <h3>1. Arrival Logic</h3>
+                        <div class="step-box">
+                            <div class="step">
+                                <span class="step-num">01</span>
+                                <div class="step-content">
+                                    <strong>Generate Interarrival (IA):</strong>
+                                    <div class="code">IA[i] = Random(Min, Max)</div>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <span class="step-num">02</span>
+                                <div class="step-content">
+                                    <strong>Calculate Clock Time:</strong>
+                                    <div class="code">ArrivalClock[i] = ArrivalClock[i-1] + IA[i]</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3>2. Service Logic</h3>
+                        <div class="step-box">
+                            <div class="step">
+                                <span class="step-num">03</span>
+                                <div class="step-content">
+                                    <strong>Start Service:</strong>
+                                    <div class="code">Start[i] = max(ArrivalClock[i], End[i-1])</div>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <span class="step-num">04</span>
+                                <div class="step-content">
+                                    <strong>End Service:</strong>
+                                    <div class="code">End[i] = Start[i] + ServiceTime[i]</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3>3. Performance Logic</h3>
+                        <div class="step-box">
+                            <div class="step">
+                                <span class="step-num">05</span>
+                                <div class="step-content">
+                                    <strong>Wait Time:</strong>
+                                    <div class="code">Wait[i] = Start[i] - ArrivalClock[i]</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid-2">
                 <div class="card">
                     <h2>Simulation Setup</h2>
@@ -163,11 +243,58 @@
 
         <!-- 3. MULTI-SERVER SIMULATION -->
         <section id="multi-sim" class="section">
+            <div class="card" style="margin-bottom:25px;">
+                <h2><i class='bx bx-sitemap'></i> Multi-Server Laws (M/M/c)</h2>
+                <div class="grid-2">
+                    <div>
+                        <h3>System Notation</h3>
+                        <div class="formula-block">
+                            <div class="formula-row">
+                                <span class="var">c</span>
+                                <span class="desc">Number of Parallel Servers</span>
+                            </div>
+                            <div class="formula-row">
+                                <span class="var">Disc</span>
+                                <span class="desc">Queue Discipline (e.g. FCFS)</span>
+                            </div>
+                        </div>
+
+                        <h3>Generic Performance Laws</h3>
+                        <ul class="rule-list">
+                            <li><strong>Utilization (ρ):</strong> λ / (c × μ)</li>
+                            <li><strong>Stable Condition:</strong> λ < (c × μ)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Able & Baker Problem Rules</h3>
+                        <p class="subtitle" style="margin-top:0;">Heterogeneous Servers (Different Speeds)</p>
+                        <div class="step-box">
+                            <div class="step">
+                                <span class="step-num">Rule 1</span>
+                                <div class="step-content">
+                                    <strong>Check Availability:</strong>
+                                    <small>Is Able free? Is Baker free?</small>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <span class="step-num">Rule 2</span>
+                                <div class="step-content">
+                                    <strong>Priority Selection:</strong>
+                                    <small>If Able is free → Select <strong>Able</strong>.</small>
+                                    <small>If Able busy & Baker free → Select <strong>Baker</strong>.</small>
+                                    <small>If both busy → Wait for <strong>earliest</strong> finish.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
-                <h2>Multi-Server Logic (Able & Baker)</h2>
-                <p style="margin-bottom: 20px;">Two servers logic. <strong>Able</strong> (Exp) takes priority.
-                    <strong>Baker</strong> (Novice) takes if Able busy.
+                <h2>Simulation Control</h2>
+                <p style="margin-bottom: 20px;">Run the specific "Able & Baker" scenario (50 Customers).
                 </p>
+
                 <button class="action-btn" onclick="runMultiServerSim()">Run Able & Baker Simulation (50 Pax)</button>
             </div>
 
@@ -211,6 +338,28 @@
 
         <!-- 4. INVENTORY SIMULATION -->
         <section id="inventory" class="section">
+            <div class="card">
+                <h2><i class='bx bx-package'></i> Inventory Logic (M, N)</h2>
+                <p class="subtitle">Periodic Review System Rules & Mathematical Law</p>
+
+                <div class="grid-2">
+                    <div>
+                        <ul class="rule-list">
+                            <li><strong>Review Period (N):</strong> Check inventory every N days.</li>
+                            <li><strong>Target Level (M):</strong> Max inventory capacity/Order up to level.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Ordering Rule (The Law)</h3>
+                        <div class="formula">Order Qty (Q) = M - EndingInv + Shortage</div>
+                        <p style="font-size:0.9rem; color:var(--text-muted);">
+                            Order Quantity (Q) is calculated <strong>only on review days</strong>. Order is placed to
+                            top up inventory to level M.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid-2">
                 <div class="card">
                     <h2>(M, N) Inventory Policy</h2>
@@ -262,6 +411,29 @@
 
         <!-- 5. RNG & TESTING -->
         <section id="rng" class="section">
+            <div class="card" style="margin-bottom:25px;">
+                <h2><i class='bx bx-dice-5'></i> RNG Laws & Algorithms</h2>
+                <div class="grid-2">
+                    <div>
+                        <h3>Linear Congruential Generator (LCG)</h3>
+                        <div class="formula">Zᵢ = (a × Zᵢ₋₁ + c) mod m</div>
+                        <div class="formula-list">
+                            <div class="f-item"><span class="f-name">Modulus (m):</span> Range limit</div>
+                            <div class="f-item"><span class="f-name">Multiplier (a):</span> Scaling factor</div>
+                            <div class="f-item"><span class="f-name">Increment (c):</span> Shift factor</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Uniformity Test (Chi-Square)</h3>
+                        <div class="formula">χ² = ∑ [ (Oᵢ - Eᵢ)² / Eᵢ ]</div>
+                        <ul class="rule-list">
+                            <li><strong>Null Hypothesis (H₀):</strong> numbers are Uniform.</li>
+                            <li><strong>Decision:</strong> Reject H₀ if χ² > Critical Value.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid-2">
                 <div class="card">
                     <h2>Random Number Generator (LCG)</h2>
