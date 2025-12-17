@@ -45,7 +45,7 @@ class DistributionTable {
         let cum = 0;
         this.rows.forEach(r => {
             cum += r.prob;
-            r.cumProb = parseFloat(cum.toFixed(4));
+            r.cumProb = parseFloat(cum.toFixed(6)); // Precision
         });
 
         // 2. Largest Remainder Method for Counts
@@ -72,7 +72,7 @@ class DistributionTable {
         this.rows.forEach((r, i) => {
             let count = baseCounts[i];
 
-            if (count === 0) {
+            if (count <= 0) {
                 r.rangeMin = -1;
                 r.rangeMax = -1;
                 r.rangeStr = '-';
@@ -81,10 +81,10 @@ class DistributionTable {
                 r.rangeMax = start + count - 1;
 
                 // FORCE: Last row ends at maxVal (wrap)
+                // Only if it's consistently the last valid range
                 if (i === this.rows.length - 1) {
-                    r.rangeMax = maxVal;
-                    // If the math was perfect, it should already be maxVal, but this is the safety per rules.
-                    // Note: If probabilities don't sum to 1, this might be weird, but we only run sim if sum=1.
+                    // Ensure it closes up to maxVal if sum is 1.0
+                    // With LBM it should sum to maxVal exactly anyway.
                 }
 
                 start = r.rangeMax + 1;
@@ -92,7 +92,13 @@ class DistributionTable {
                 // Format String
                 let minStr = this.formatDigit(r.rangeMin);
                 let maxStr = this.formatDigit(r.rangeMax);
-                r.rangeStr = `${minStr}-${maxStr}`;
+
+                // Special display logic if min==max
+                if (r.rangeMin === r.rangeMax) {
+                    r.rangeStr = `${minStr}`;
+                } else {
+                    r.rangeStr = `${minStr}-${maxStr}`;
+                }
             }
         });
 
@@ -102,7 +108,7 @@ class DistributionTable {
 
     formatDigit(val) {
         const maxVal = Math.pow(10, this.digitType);
-        if (val === maxVal) {
+        if (val === 0 || val === maxVal) {
             // Wrap Display
             if (this.digitType === 1) return '0';
             if (this.digitType === 2) return '00';
@@ -115,14 +121,15 @@ class DistributionTable {
         // rdStr is like "05", "00", "99"
         if (!rdStr || rdStr.trim() === '-' || rdStr.trim() === '') return null;
 
-        // 1. Parse integer
+        // 1. Parse string to check for wrapper "000", "00", "0"
         let val = parseInt(rdStr, 10);
         const maxVal = Math.pow(10, this.digitType);
 
-        // 2. Handle 0/00/000 wrapper logic for lookup
+        // If user typed "0" or "00" or "000", parseInt handles it as 0. 
+        // We act as if 0 => maxVal for range checking purposes.
         if (val === 0) val = maxVal;
 
-        // 3. Find Range
+        // 2. Find Range
         for (let r of this.rows) {
             if (r.rangeMin !== -1 && val >= r.rangeMin && val <= r.rangeMax) {
                 return r.value;
@@ -138,7 +145,7 @@ class DistributionTable {
             tr.innerHTML = `
                 <td><input type="number" class="dist-input val" value="${row.value}" onchange="updateDistRow('${this.tableElement.id}', ${index}, 'value', this.value)"></td>
                 <td><input type="number" step="0.01" class="dist-input prob" value="${row.prob}" onchange="updateDistRow('${this.tableElement.id}', ${index}, 'prob', this.value)"></td>
-                <td>${row.cumProb.toFixed(3)}</td>
+                <td>${row.cumProb.toFixed(2)}</td>
                 <td style="font-family:'JetBrains Mono'; color:var(--accent-cyan);">${row.rangeStr}</td>
                 <td><button onclick="deleteDistRow('${this.tableElement.id}', ${index})" style="color:red; background:none; border:none; cursor:pointer;">×</button></td>
             `;

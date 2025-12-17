@@ -8,10 +8,7 @@ function switchTab(tabId) {
 }
 
 // --- HELPER FUNCTIONS ---
-function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
+// --- HELPER FUNCTIONS ---
 function round(num) {
     return Math.round(num * 100) / 100;
 }
@@ -88,17 +85,20 @@ const DIST_MAP = {
 };
 
 // Initialize with some default rows
+// Initialize with some default rows
 window.addEventListener('DOMContentLoaded', () => {
-    // Single Server defaults
-    addDistRow('ss-ia', 1, 0.25);
-    addDistRow('ss-ia', 2, 0.40);
-    addDistRow('ss-ia', 3, 0.20);
-    addDistRow('ss-ia', 4, 0.15);
+    // Single Server defaults (3-digit Interarrival, 1..8, 0.125 each)
+    for (let i = 1; i <= 8; i++) {
+        addDistRow('ss-ia', i, 0.125);
+    }
 
-    addDistRow('ss-st', 2, 0.30);
-    addDistRow('ss-st', 3, 0.28);
+    // Service Defaults (2-digit, Lecture Ex)
+    addDistRow('ss-st', 1, 0.10);
+    addDistRow('ss-st', 2, 0.20);
+    addDistRow('ss-st', 3, 0.30);
     addDistRow('ss-st', 4, 0.25);
-    addDistRow('ss-st', 5, 0.17);
+    addDistRow('ss-st', 5, 0.10);
+    addDistRow('ss-st', 6, 0.05);
 
     // Multi Server defaults (Call Center Example)
     addDistRow('ms-ia', 1, 0.25);
@@ -130,42 +130,6 @@ window.addEventListener('DOMContentLoaded', () => {
     addDistRow('inv-lt', 3, 0.10);
 });
 
-// --- HELPER: Auto-Fill Random Digits ---
-function ensureRandomDigits(elementId, countNeeded, digitType) {
-    const input = document.getElementById(elementId);
-    if (!input) return false;
-
-    let currentStr = input.value;
-    // Simple parse to count existing
-    let existing = currentStr.split(/[\s,]+/).filter(s => s.trim() !== '');
-
-    if (existing.length >= countNeeded) return true; // Enough digits
-
-    let needed = countNeeded - existing.length;
-    let newDigits = [];
-
-    // Generate 'needed' random digits
-    for (let i = 0; i < needed; i++) {
-        // Generate random int based on digitType
-        let maxVal = Math.pow(10, digitType);
-        let val = Math.floor(Math.random() * maxVal); // 0 to 99..
-
-        // Pad
-        let s = String(val).padStart(digitType, '0');
-        newDigits.push(s);
-    }
-
-    // Append to input
-    let separator = (currentStr.trim().length > 0) ? ' ' : '';
-    input.value = currentStr + separator + newDigits.join(' ');
-
-    // Flash effect
-    input.style.borderColor = 'var(--accent-success)';
-    setTimeout(() => input.style.borderColor = '', 500);
-
-    return true;
-}
-
 // --- 2. SINGLE SERVER SIMULATION ---
 function runSingleServerSim() {
     try {
@@ -181,31 +145,26 @@ function runSingleServerSim() {
         // 2. Validate Distributions
         const checkSum = (dist) => (dist.rows.length > 0 ? dist.rows[dist.rows.length - 1].cumProb : 0);
 
-        if (Math.abs(checkSum(ssIaDist) - 1.0) > 0.000001) {
+        // Strict 1.0 check
+        if (Math.abs(checkSum(ssIaDist) - 1.0) > 0.00001) {
             throw new Error(`Interarrival Probabilities sum to ${checkSum(ssIaDist).toFixed(4)}, must be 1.0`);
         }
-        if (Math.abs(checkSum(ssStDist) - 1.0) > 0.000001) {
+        if (Math.abs(checkSum(ssStDist) - 1.0) > 0.00001) {
             throw new Error(`Service Probabilities sum to ${checkSum(ssStDist).toFixed(4)}, must be 1.0`);
         }
 
-        // AUTO-FILL
-        if (typeof ensureRandomDigits === 'function') {
-            ensureRandomDigits('ss-rd-arr', n - 1, 3);
-            ensureRandomDigits('ss-rd-svc', n, 2);
-        }
-
-        // 3. Parse inputs
+        // 3. Parse inputs - NO AUTO-FILL
         const rdArrInput = document.getElementById('ss-rd-arr').value;
         const rdSvcInput = document.getElementById('ss-rd-svc').value;
 
         const arrStream = new RandomDigitStream(rdArrInput);
         const svcStream = new RandomDigitStream(rdSvcInput);
 
-        if (arrStream.count !== (n - 1)) {
-            throw new Error(`Expected ${n - 1} Arrival Random Digits, found ${arrStream.count}.`);
+        if (arrStream.count < (n - 1)) {
+            throw new Error(`Not enough Arrival digits. Need ${n - 1}, found ${arrStream.count}.`);
         }
-        if (svcStream.count !== n) {
-            throw new Error(`Expected ${n} Service Random Digits, found ${svcStream.count}.`);
+        if (svcStream.count < n) {
+            throw new Error(`Not enough Service digits. Need ${n}, found ${svcStream.count}.`);
         }
 
         // 4. Run
@@ -222,7 +181,7 @@ function runSingleServerSim() {
         let sumInterarrival = 0;
         let totalTimeInSystem = 0;
         let totalIdleTime = 0;
-        let totalRunTime = 0;
+        let totalRunTime = 0; // Time Service Ends of last customer
 
         for (let i = 1; i <= n; i++) {
             let rdArrStr = '-';
@@ -247,6 +206,10 @@ function runSingleServerSim() {
             let waitQueue = serviceBegin - arrivalClock;
             let timeInSystem = serviceEnd - arrivalClock;
             let idleTime = Math.max(0, arrivalClock - serviceEndPrev);
+
+            // Special case for first customer, idle time is 0 (assumed started at 0) OR
+            // If we consider idle time of server before first customer comes? Usually 0 if starts at 0.
+            if (i === 1) idleTime = arrivalClock; // If arrives at 0, idle=0. If arrives at 5, idle=5? Lecture usually assumes starts at 0.
 
             serviceEndPrev = serviceEnd;
             totalRunTime = serviceEnd;
@@ -283,6 +246,10 @@ function runSingleServerSim() {
         document.getElementById('ss-res-avg-wait-cond').innerText = avgWaitCond.toFixed(2);
         document.getElementById('ss-res-avg-sys').innerText = (totalTimeInSystem / n).toFixed(2);
 
+        // Check verification
+        let checkVal = (totalWaitQueue / n) + (totalServiceTime / n); // avg wait + avg svc
+        document.getElementById('ss-res-check').innerText = checkVal.toFixed(2);
+
     } catch (e) {
         const err = document.getElementById('ss-error');
         if (err) {
@@ -305,23 +272,18 @@ function runMultiServerSim() {
 
         // 1. Validate
         const checkSum = (dist) => (dist.rows.length > 0 ? dist.rows[dist.rows.length - 1].cumProb : 0);
-        if (Math.abs(checkSum(msIaDist) - 1.0) > 0.000001) throw new Error("IA Probabilities sum != 1.0");
-        if (Math.abs(checkSum(msAbleDist) - 1.0) > 0.000001) throw new Error("Able Probabilities sum != 1.0");
-        if (Math.abs(checkSum(msBakerDist) - 1.0) > 0.000001) throw new Error("Baker Probabilities sum != 1.0");
+        if (Math.abs(checkSum(msIaDist) - 1.0) > 0.00001) throw new Error("IA Probabilities sum != 1.0");
+        if (Math.abs(checkSum(msAbleDist) - 1.0) > 0.00001) throw new Error("Able Probabilities sum != 1.0");
+        if (Math.abs(checkSum(msBakerDist) - 1.0) > 0.00001) throw new Error("Baker Probabilities sum != 1.0");
 
-        // AUTO-FILL
-        if (typeof ensureRandomDigits === 'function') {
-            ensureRandomDigits('ms-rd-arr', n - 1, 2);
-            ensureRandomDigits('ms-rd-svc', n, 2);
-        }
-
+        // NO AUTO-FILL
         const rdArrInput = document.getElementById('ms-rd-arr').value;
         const rdSvcInput = document.getElementById('ms-rd-svc').value;
         const arrStream = new RandomDigitStream(rdArrInput);
         const svcStream = new RandomDigitStream(rdSvcInput);
 
-        if (arrStream.count !== (n - 1)) throw new Error(`Expected ${n - 1} Arrival Random Digits, found ${arrStream.count}.`);
-        if (svcStream.count !== n) throw new Error(`Expected ${n} Service Random Digits, found ${svcStream.count}.`);
+        if (arrStream.count < (n - 1)) throw new Error(`Not enough Arrival digits. Need ${n - 1}, found ${arrStream.count}.`);
+        if (svcStream.count < n) throw new Error(`Not enough Service digits. Need ${n}, found ${svcStream.count}.`);
 
         // 2. Run
         let tableBody = document.querySelector('#ms-table tbody');
@@ -350,17 +312,29 @@ function runMultiServerSim() {
             let arrivalTime = clock;
             let server = '';
 
+            // Server Selection Logic
+            // 1. Check current status
             let ableIdle = (arrivalTime >= ableFree);
             let bakerIdle = (arrivalTime >= bakerFree);
 
             if (ableIdle && bakerIdle) {
+                // Both Idle => Use Rule
                 server = (rule === 'able') ? 'able' : 'baker';
             } else if (ableIdle) {
                 server = 'able';
             } else if (bakerIdle) {
                 server = 'baker';
             } else {
-                if (ableFree <= bakerFree) server = 'able'; else server = 'baker';
+                // Both Busy => Choose earliest free time
+                // If tie, use Rule
+                if (ableFree < bakerFree) {
+                    server = 'able';
+                } else if (bakerFree < ableFree) {
+                    server = 'baker';
+                } else {
+                    // Tie in free time
+                    server = (rule === 'able') ? 'able' : 'baker';
+                }
             }
 
             let rdSvcStr = svcStream.next();
@@ -438,24 +412,19 @@ function runInventorySim() {
         errorBox.style.display = 'none';
 
         const checkSum = (dist) => (dist.rows.length > 0 ? dist.rows[dist.rows.length - 1].cumProb : 0);
-        if (Math.abs(checkSum(invDemDist) - 1.0) > 0.000001) throw new Error("Demand Probabilities sum != 1.0");
-        if (Math.abs(checkSum(invLtDist) - 1.0) > 0.000001) throw new Error("Lead Time Probabilities sum != 1.0");
+        if (Math.abs(checkSum(invDemDist) - 1.0) > 0.00001) throw new Error("Demand Probabilities sum != 1.0");
+        if (Math.abs(checkSum(invLtDist) - 1.0) > 0.00001) throw new Error("Lead Time Probabilities sum != 1.0");
 
         const totalDays = cycles * N;
 
-        // AUTO-FILL
-        if (typeof ensureRandomDigits === 'function') {
-            ensureRandomDigits('inv-rd-dem', totalDays, 2);
-            ensureRandomDigits('inv-rd-lt', cycles, 1);
-        }
-
+        // NO AUTO-FILL
         const rdDemInput = document.getElementById('inv-rd-dem').value;
         const rdLtInput = document.getElementById('inv-rd-lt').value;
         const demStream = new RandomDigitStream(rdDemInput);
         const ltStream = new RandomDigitStream(rdLtInput);
 
-        if (demStream.count !== totalDays) throw new Error(`Expected ${totalDays} Demand RDs (Days), found ${demStream.count}.`);
-        if (ltStream.count !== cycles) throw new Error(`Expected ${cycles} Lead Time RDs (Cycles), found ${ltStream.count}.`);
+        if (demStream.count < totalDays) throw new Error(`Not enough Demand RDs. Need ${totalDays}, found ${demStream.count}.`);
+        if (ltStream.count < cycles) throw new Error(`Not enough Lead Time RDs. Need ${cycles}, found ${ltStream.count}.`);
 
         let tableBody = document.querySelector('#inv-table tbody');
         tableBody.innerHTML = '';
@@ -469,6 +438,8 @@ function runInventorySim() {
 
         for (let cycle = 1; cycle <= cycles; cycle++) {
             for (let dayInRange = 1; dayInRange <= N; dayInRange++) {
+
+                // 1. Order Arrival (Start of Day)
                 if (daysUntilArrival > 0) {
                     daysUntilArrival--;
                     if (daysUntilArrival === 0) {
@@ -478,6 +449,8 @@ function runInventorySim() {
                 }
 
                 let begInv = onHand;
+
+                // 2. Demand
                 let rdDemStr = demStream.next();
                 let demand = invDemDist.lookup(rdDemStr);
                 if (demand === null) throw new Error(`Invalid Demand RD '${rdDemStr}'`);
@@ -495,11 +468,20 @@ function runInventorySim() {
                 if (shortage > 0) daysShortage++;
                 totalEndingInv += endInv;
 
+                // 3. Review / Order (End of Day, Only if Day==N)
                 let orderQty = '-';
                 let rdLtStr = '-';
-                let daysToArrive = (outstandingQty > 0 || daysUntilArrival > 0) ? daysUntilArrival : '-';
+
+                // Keep track of what we show for "Days until Order Arrives"
+                // Usually showed countdown. If order arrives today, it showed 0 or -? 
+                // Lecture: "Days until Order Arrives" often shows the lead time generated on review day.
+                // Or the outstanding count logic.
+                // We will match the logic: show remaining days if waiting.
+
+                let displayDaysToArrive = (outstandingQty > 0 || daysUntilArrival > 0) ? daysUntilArrival : '-';
 
                 if (dayInRange === N) {
+                    // Place Order
                     let Q = M - endInv + shortage;
                     orderQty = Q;
                     rdLtStr = ltStream.next();
@@ -508,7 +490,9 @@ function runInventorySim() {
 
                     outstandingQty = Q;
                     daysUntilArrival = leadTime;
-                    daysToArrive = leadTime;
+
+                    // Display the newly generated lead time in the last column
+                    displayDaysToArrive = leadTime;
                 }
 
                 const row = `<tr>
@@ -521,7 +505,7 @@ function runInventorySim() {
                     <td>${shortage}</td>
                     <td>${orderQty}</td>
                     <td>${rdLtStr}</td>
-                    <td>${daysToArrive}</td>
+                    <td>${displayDaysToArrive}</td>
                 </tr>`;
                 tableBody.innerHTML += row;
             }
