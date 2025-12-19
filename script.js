@@ -563,23 +563,29 @@ function generateLCG() {
 
 // Critical Values Table (Approximation or Subset)
 // Keys: alpha -> df
-const CHI_CRITICAL = {
-    "0.10": { 9: 14.68, 19: 27.20, 29: 39.09, 49: 62.04, 99: 117.41 },
-    "0.05": { 9: 16.92, 19: 30.14, 29: 42.56, 49: 66.34, 99: 123.23 },
-    "0.025": { 9: 19.02, 19: 32.85, 29: 45.72, 49: 70.22, 99: 128.42 },
-    "0.01": { 9: 21.67, 19: 36.19, 29: 49.59, 49: 74.92, 99: 134.64 },
-    "0.005": { 9: 23.59, 19: 38.58, 29: 52.34, 49: 78.23, 99: 138.99 }
+const CHI_CRITICAL_05 = {
+    1: 3.84, 2: 5.99, 3: 7.81, 4: 9.49, 5: 11.1,
+    6: 12.6, 7: 14.1, 8: 15.5, 9: 16.9, 10: 18.3,
+    11: 19.7, 12: 21.0, 13: 22.4, 14: 23.7, 15: 25.0,
+    16: 26.3, 17: 27.6, 18: 28.9, 19: 30.1, 20: 31.4
 };
 
 function getChiCritical(alpha, df) {
-    // Exact lookup
+    // Exact lookup for alpha = 0.05 which is the standard requirement
+    if (alpha == "0.05") {
+        if (CHI_CRITICAL_05[df]) return CHI_CRITICAL_05[df];
+    }
+
+    // Fallback or other alphas (using the old subset or approximation if needed)
+    // For now, we prioritize the 0.05 set requested.
     if (CHI_CRITICAL[alpha] && CHI_CRITICAL[alpha][df]) return CHI_CRITICAL[alpha][df];
 
-    // Approximation for large df (Wilson-Hilferty)
-    // X^2 = df * ( 1 - 2/(9df) + z * sqrt(2/(9df)) )^3
-    // z for 0.05 = 1.645, etc.
-    // Fallback: Use 16.9 for df=9, alpha=0.05 default if missing
-    if (df === 9 && alpha === "0.05") return 16.92;
+    // Approximation for large df
+    if (df > 20) {
+        // Wilson-Hilferty approx for alpha=0.05 (z=1.645)
+        // For alpha=0.05, z approx 1.645
+        return parseFloat((df * Math.pow(1 - 2 / (9 * df) + 1.645 * Math.sqrt(2 / (9 * df)), 3)).toFixed(2));
+    }
     return null;
 }
 
@@ -600,10 +606,6 @@ function runChiSquare() {
         // Validation
         if (stream.some(isNaN)) throw new Error("Invalid number found in input.");
         if (stream.length !== N) {
-            // Either warn or error. Requirement says "n (total number of random numbers)" is input
-            // So we should enforce or at least warn if mismatch. Let's error for strictness or slice?
-            // "n (total number of random numbers)" suggests we might just take N, or check match.
-            // Let's enforce match or warn.
             throw new Error(`Input count (${stream.length}) does not match Sample Size N (${N}).`);
         }
 
@@ -622,28 +624,71 @@ function runChiSquare() {
         // 3. Expected
         let expected = N / k;
 
-        // 4. Calc Statistic
+        // 4. Calc Statistic & Build Detailed Table
         let chiCalc = 0;
-        let html = '';
+        let tableHtml = '';
+
+        // Header for Detailed Table
+        // Columns: Interval | Oi | Ei | Oi - Ei | (Oi - Ei)² | (Oi - Ei)²/Ei
+        let totalOi = 0;
+        let totalChiTerm = 0;
 
         for (let i = 0; i < k; i++) {
             let O = observed[i];
             let E = expected;
-            let term = Math.pow(O - E, 2) / E;
+            let diff = O - E;
+            let diffSq = Math.pow(diff, 2);
+            let term = diffSq / E;
+
             chiCalc += term;
+            totalOi += O;
+            totalChiTerm += term;
 
-            let start = (i / k).toFixed(2);
-            let end = ((i + 1) / k).toFixed(2);
+            let start = (i / k);
+            let end = ((i + 1) / k);
 
-            html += `<tr>
-                <td>[${start}, ${end})</td>
+            // Format to 1 decimal if suitable, or 2 max to match "0.0, 0.1"
+            let startStr = (start % 1 === 0) ? start.toFixed(1) : start.toFixed(2).replace(/\.?0+$/, '');
+            let endStr = (end % 1 === 0) ? end.toFixed(1) : end.toFixed(2).replace(/\.?0+$/, '');
+
+            // Force 0.0 style for integers too if we want uniformity e.g. 0.0
+            startStr = Number(start).toFixed(2).replace(/0$/, ''); // 0.00 -> 0.0
+            endStr = Number(end).toFixed(2).replace(/0$/, '');
+
+            // Simpler approach: Just use fixed 1 digit if they are tenths
+            if (k <= 10) {
+                startStr = start.toFixed(1);
+                endStr = end.toFixed(1);
+            } else {
+                startStr = start.toFixed(2);
+                endStr = end.toFixed(2);
+            }
+
+            tableHtml += `<tr>
+                <td>[${startStr}, ${endStr})</td>
                 <td>${O}</td>
-                <td>${E}</td>
+                <td>${E.toFixed(2)}</td>
+                <td>${diff.toFixed(2)}</td>
+                <td>${diffSq.toFixed(2)}</td>
                 <td>${term.toFixed(3)}</td>
             </tr>`;
         }
 
-        document.querySelector('#chi-table tbody').innerHTML = html;
+        // Total Row
+        tableHtml += `<tr style="font-weight:bold; background:rgba(255,255,255,0.1);">
+            <td>Total</td>
+            <td>${totalOi}</td>
+            <td>${(expected * k).toFixed(2)}</td>
+            <td>0.00</td>
+            <td>-</td>
+            <td>${totalChiTerm.toFixed(3)}</td>
+        </tr>`;
+
+        // Update Table
+        document.querySelector('#chi-table tbody').innerHTML = tableHtml;
+        // Ensure class matches if needed, though structure is key
+        document.getElementById('chi-table').classList.add('sim-table');
+
 
         // 5. Decision
         const df = k - 1;
@@ -652,16 +697,28 @@ function runChiSquare() {
         let resDiv = document.getElementById('chi-result');
         document.getElementById('chi-details').style.display = 'block';
 
-        let msg = `Calculated χ² = <strong>${chiCalc.toFixed(3)}</strong>. (df=${df}, α=${alpha})<br>`;
+        let msg = `
+        <h3>Uniformity Test (Chi-Square) Results</h3>
+        <p><strong>Hypotheses:</strong><br>
+        H₀: R ~ Uniform[0, 1]<br>
+        H₁: R ≁ Uniform[0, 1]</p>
+        <p><strong>Calculated χ²:</strong> ${chiCalc.toFixed(3)}</p>
+        <p><strong>Critical Value (χ²<sub>${alpha}, ${df}</sub>):</strong> ${criticalCv !== null ? criticalCv : 'N/A'}</p>
+        `;
 
         if (criticalCv === null) {
-            msg += `<span style="color:orange">Warning: Critical value for df=${df}, alpha=${alpha} not in lookup table. Using generic threshold check needed.</span>`;
+            msg += `<p style="color:orange">Warning: Critical value for df=${df}, alpha=${alpha} not found.</p>`;
         } else {
-            msg += `Critical Value = <strong>${criticalCv}</strong>.<br>`;
             if (chiCalc > criticalCv) {
-                msg += `<span style="color:var(--accent-danger)">Reject H₀ (Not Uniform). ${chiCalc.toFixed(3)} > ${criticalCv}</span>`;
+                msg += `<p class="formula" style="color:var(--accent-danger); border-color:var(--accent-danger);">
+                    Result: <strong>Reject H₀</strong>. <br>
+                    Since ${chiCalc.toFixed(3)} > ${criticalCv}, the numbers are NOT Uniform.
+                </p>`;
             } else {
-                msg += `<span style="color:var(--accent-success)">Fail to Reject H₀ (Uniform). ${chiCalc.toFixed(3)} <= ${criticalCv}</span>`;
+                msg += `<p class="formula" style="color:var(--accent-success); border-color:var(--accent-success);">
+                    Result: <strong>Fail to reject H₀</strong>. <br>
+                    Since ${chiCalc.toFixed(3)} ≤ ${criticalCv}, we accept that numbers are Uniform.
+                </p>`;
             }
         }
 
@@ -677,7 +734,9 @@ function runChiSquare() {
 function runAutocorrelation() {
     try {
         const nParam = parseInt(document.getElementById('auto-n').value);
-        const k = parseInt(document.getElementById('auto-k').value); // Lag
+        // We will ignore auto-k input for the SINGLE lag check and do a Loop up to M
+        // But if user wants specific lag, they can look at the table.
+        // Rule: Calculate rxx(k) for k = 1 up to M (M = min(10, N/2))
 
         // 1. Parse Input
         const raw = document.getElementById('auto-manual-input').value;
@@ -688,15 +747,12 @@ function runAutocorrelation() {
 
         let sequence = raw.trim().split(/[\s,]+/).filter(x => x !== '').map(parseFloat);
 
-        // Validation of input
+        // Validation
         if (sequence.some(isNaN)) {
             document.getElementById('auto-result').innerHTML = `<span style="color:var(--accent-danger)">Error: Invalid numbers in input.</span>`;
             return;
         }
 
-        // Limit or validate N
-        // User requested "inputs to be ... total number... update output depend on them"
-        // If we have more numbers than N, slice. If less, error.
         if (sequence.length < nParam) {
             document.getElementById('auto-result').innerHTML = `<span style="color:var(--accent-danger)">Error: Input sequence length ${sequence.length} < N (${nParam}).</span>`;
             return;
@@ -706,83 +762,85 @@ function runAutocorrelation() {
         const N = nParam;
         const R = sequence.slice(0, N);
 
-        // 2. Build Table & Calculate Sums for specific RNG Autocorrelation Test
-        // Formula often used: Rho_hat = [ (1/(M+1)) * Sum(Ri * Ri+k) ] - 0.25
-        // Where M is such that i+k <= N-1.  Let's stick to the Pearson correlation for general "Independence" 
-        // OR standard Autocorrelation for time series.
-        // Existing code used Variance-based Pearson. We will stick to that for robustness, 
-        // but the TABLE usually shows the terms.
+        // Calculate Mean and StdDev
+        let sum = R.reduce((a, b) => a + b, 0);
+        let mean = sum / N;
+        let sumSqDiff = R.reduce((a, b) => a + Math.pow(b - mean, 2), 0);
+        let stdDev = Math.sqrt(sumSqDiff / (N - 1)); // Sample Std dev
+
+        // 2. Build detailed table for lags k = 1 to M
+        // M rule: min(10, N/2) usually, or just N/2
+        let M = Math.floor(N / 2);
+        if (M > 10) M = 10;
+        if (M < 1) M = 1;
 
         let tableBody = document.querySelector('#auto-table tbody');
         tableBody.innerHTML = '';
 
-        let sumX = 0; // sum Ri
-        let sumY = 0; // sum Ri+k
-        let sumXY = 0; // sum Ri * Ri+k
-        let sumXSq = 0;
-        let sumYSq = 0;
+        let headerHtml = `
+            <div style="margin-bottom:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
+                <strong>Statistics:</strong><br>
+                Mean ($\bar{x}$) = ${mean.toFixed(4)}<br>
+                Std Dev ($s_x$) = ${stdDev.toFixed(4)}<br>
+                N = ${N}, Max Lag M = ${M}
+            </div>
+            
+            <table class="sim-table">
+                <thead>
+                    <tr>
+                        <th>k (Lag)</th>
+                        <th>$r_{xx}(k)$</th>
+                        <th>Interpretation</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
 
-        let M = 0; // Count of pairs
-        let html = '';
+        let sumAbsRxx = 0;
 
-        // Loop valid pairs
-        // i goes from 0 to N - 1 - k
-        // Indices are 1-based in display (i=1..N-k)
+        for (let k = 1; k <= M; k++) {
+            // Calculate Autocorrelation at lag k
+            // Numerator: Sum from i=1 to N-k of (Ri - mean)(Ri+k - mean)
+            // Denominator: Sum from i=1 to N of (Ri - mean)^2  <-- This is sumSqDiff
 
-        for (let i = 0; i < N - k; i++) {
-            let val1 = R[i];
-            let val2 = R[i + k];
+            let numerator = 0;
+            for (let i = 0; i < N - k; i++) {
+                numerator += (R[i] - mean) * (R[i + k] - mean);
+            }
 
-            let prod = val1 * val2;
+            let r_k = numerator / sumSqDiff;
+            sumAbsRxx += Math.abs(r_k);
 
-            // Stats accumulation
-            sumX += val1;
-            sumY += val2;
-            sumXY += prod;
-            sumXSq += val1 * val1;
-            sumYSq += val2 * val2;
-            M++;
+            let interp = (Math.abs(r_k) < 0.1) ?
+                "<span style='color:var(--accent-success)'>Independent (Low)</span>" :
+                "<span style='color:var(--accent-warning)'>Possible Dependence</span>";
 
-            html += `<tr>
-                <td>${i + 1}</td>
-                <td>${val1}</td>
-                <td>${val2}</td>
-                <td>${prod.toFixed(4)}</td>
+            headerHtml += `<tr>
+                <td>${k}</td>
+                <td>${r_k.toFixed(4)}</td>
+                <td>${interp}</td>
             </tr>`;
         }
 
-        tableBody.innerHTML = html;
+        headerHtml += `</tbody>
+            <tfoot>
+                <tr style="font-weight:bold; background:rgba(255,255,255,0.05);">
+                    <td colspan="3" style="text-align:center;">Average |$r_{xx}(k)$| = ${(sumAbsRxx / M).toFixed(4)}</td>
+                </tr>
+            </tfoot>
+        </table>`;
 
-        // 3. Calculation
-        // Pearson r = (M * SumXY - SumX * SumY) / sqrt( [M*SumXSq - (SumX)^2] * [M*SumYSq - (SumY)^2] )
+        // Replace the entire INNER content of the #auto-result or restructure
+        // The HTML structure in index.html has a <table> inside .table-container
+        // But we want to REPLACE that structure with our custom columns or update headers.
+        // The existing table has 4 columns: i, Ri, Ri+k, prod.
+        // We need to CHANGE the headers of the existing table or just overwrite the container.
 
-        let numerator = (M * sumXY) - (sumX * sumY);
-        let denomX = (M * sumXSq) - (sumX * sumX);
-        let denomY = (M * sumYSq) - (sumY * sumY);
+        // Let's overwrite the container's innerHTML effectively.
+        let container = document.querySelector('#auto-table').parentNode;
+        container.innerHTML = headerHtml;
 
-        let r_kk = 0;
-        if (denomX > 0 && denomY > 0) {
-            r_kk = numerator / Math.sqrt(denomX * denomY);
-        }
-
-        // Z-statistic for RNG (approximate normal for large N)
-        // Standard Deviation of estimator sigma_rho = 1 / sqrt(N)
-        let sigma = 1 / Math.sqrt(N);
-        let Z0 = r_kk / sigma;
-
-        let resultHtml = `
-            <strong>Results (N=${N}, Lag k=${k}, Pairs M=${M}):</strong><br>
-            Sum(R<sub>i</sub> * R<sub>i+k</sub>) = ${sumXY.toFixed(4)}<br>
-            Autocorrelation ($\hat{\rho}_{k}$) = <strong>${r_kk.toFixed(4)}</strong><br>
-            <br>
-            Assuming N is large, $\sigma_\rho \approx \frac{1}{\sqrt{N}} = ${sigma.toFixed(3)}$<br>
-            Statistic $Z_0 = \frac{\hat{\rho}}{\sigma_\rho} = ${Z0.toFixed(3)}$<br>
-            <small style="color:var(--text-muted)">
-                If |Z₀| > 1.96 (for $\alpha=0.05$), Reject Independence.
-            </small>
-        `;
-
-        document.getElementById('auto-result').innerHTML = resultHtml;
+        document.getElementById('auto-result').innerHTML = ''; // Clear result div as we put stats above
 
     } catch (e) {
         console.error(e);
