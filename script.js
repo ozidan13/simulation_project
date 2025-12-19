@@ -532,15 +532,33 @@ function generateLCG() {
     const m = parseInt(document.getElementById('lcg-m').value);
     let z = parseInt(document.getElementById('lcg-seed').value);
 
-    let output = [];
-    // Generate period (up to m) - limit to 50 for display sanity or full m? Prompt says "Sequence"
-    const limit = Math.min(m, 50);
-    for (let i = 0; i < limit; i++) {
+    // Get table body and clear it
+    const tableBody = document.querySelector('#lcg-table tbody');
+    tableBody.innerHTML = '';
+
+    // Safety limit to prevent infinite loops if m is huge or loop intended
+    const limit = Math.min(m * 2, 50);
+
+    // 1. Initial Row (i=0)
+    let html = `<tr>
+        <td>0</td>
+        <td>${z}</td>
+        <td>-</td>
+    </tr>`;
+
+    // 2. Loop
+    for (let i = 1; i <= limit; i++) {
         z = (a * z + c) % m;
-        output.push(z);
+        let u = (z / m).toFixed(3); // Round to 3 decimals distinct
+
+        html += `<tr>
+            <td>${i}</td>
+            <td>${z}</td>
+            <td>${u}</td>
+        </tr>`;
     }
 
-    document.getElementById('lcg-output').innerText = "Sequence (first 50): " + output.join(", ");
+    tableBody.innerHTML = html;
 }
 
 // Critical Values Table (Approximation or Subset)
@@ -566,160 +584,211 @@ function getChiCritical(alpha, df) {
 }
 
 function runChiSquare() {
-    // Inputs
-    const N = parseInt(document.getElementById('chi-n').value);
-    const k = parseInt(document.getElementById('chi-k').value); // Classes
-    const alpha = document.getElementById('chi-alpha').value;
+    try {
+        // Inputs
+        const N = parseInt(document.getElementById('chi-n').value);
+        const k = parseInt(document.getElementById('chi-k').value); // Classes
+        const alpha = document.getElementById('chi-alpha').value;
 
-    // LCG Params
-    const a = parseInt(document.getElementById('lcg-a').value);
-    const c = parseInt(document.getElementById('lcg-c').value);
-    const m = parseInt(document.getElementById('lcg-m').value);
-    let z = parseInt(document.getElementById('lcg-seed').value);
+        // 1. Get Random Numbers from Input
+        const rdInput = document.getElementById('chi-rd-input').value;
+        if (!rdInput.trim()) throw new Error("Please enter random numbers.");
 
-    // 1. Generate Stream
-    let stream = [];
-    for (let i = 0; i < N; i++) {
-        z = (a * z + c) % m;
-        let r = z / m; // [0,1)
-        stream.push(r);
-    }
+        // Parse stream (allow space, comma, newline)
+        let stream = rdInput.trim().split(/[\s,]+/).filter(x => x !== '').map(parseFloat);
 
-    // 2. Observations
-    let observed = new Array(k).fill(0);
-    // Interval width = 1/k
-    for (let r of stream) {
-        let bin = Math.floor(r * k);
-        if (bin >= k) bin = k - 1;
-        observed[bin]++;
-    }
-
-    // 3. Expected
-    let expected = N / k;
-
-    // 4. Calc Statistic
-    let chiCalc = 0;
-    let html = '';
-
-    for (let i = 0; i < k; i++) {
-        let O = observed[i];
-        let E = expected;
-        let term = Math.pow(O - E, 2) / E;
-        chiCalc += term;
-
-        let start = (i / k).toFixed(2);
-        let end = ((i + 1) / k).toFixed(2);
-
-        html += `<tr>
-            <td>[${start}, ${end})</td>
-            <td>${O}</td>
-            <td>${E}</td>
-            <td>${term.toFixed(3)}</td>
-        </tr>`;
-    }
-
-    document.querySelector('#chi-table tbody').innerHTML = html;
-
-    // 5. Decision
-    const df = k - 1;
-    let criticalCv = getChiCritical(alpha, df);
-
-    let resDiv = document.getElementById('chi-result');
-    document.getElementById('chi-details').style.display = 'block';
-
-    let msg = `Calculated χ² = <strong>${chiCalc.toFixed(3)}</strong>. (df=${df}, α=${alpha})<br>`;
-
-    if (criticalCv === null) {
-        msg += `<span style="color:orange">Warning: Critical value for df=${df}, alpha=${alpha} not in lookup table. Using generic threshold check needed.</span>`;
-    } else {
-        msg += `Critical Value = <strong>${criticalCv}</strong>.<br>`;
-        if (chiCalc > criticalCv) {
-            msg += `<span style="color:var(--accent-danger)">Reject H₀ (Not Uniform). ${chiCalc.toFixed(3)} > ${criticalCv}</span>`;
-        } else {
-            msg += `<span style="color:var(--accent-success)">Fail to Reject H₀ (Uniform). ${chiCalc.toFixed(3)} <= ${criticalCv}</span>`;
+        // Validation
+        if (stream.some(isNaN)) throw new Error("Invalid number found in input.");
+        if (stream.length !== N) {
+            // Either warn or error. Requirement says "n (total number of random numbers)" is input
+            // So we should enforce or at least warn if mismatch. Let's error for strictness or slice?
+            // "n (total number of random numbers)" suggests we might just take N, or check match.
+            // Let's enforce match or warn.
+            throw new Error(`Input count (${stream.length}) does not match Sample Size N (${N}).`);
         }
-    }
 
-    resDiv.innerHTML = msg;
+        // Check range [0, 1]
+        if (stream.some(x => x < 0 || x >= 1)) throw new Error("Random numbers must be between 0 and 1 (exclusive of 1).");
+
+        // 2. Observations
+        let observed = new Array(k).fill(0);
+        // Interval width = 1/k
+        for (let r of stream) {
+            let bin = Math.floor(r * k);
+            if (bin >= k) bin = k - 1; // Safety for 1.0 (though input should be < 1)
+            observed[bin]++;
+        }
+
+        // 3. Expected
+        let expected = N / k;
+
+        // 4. Calc Statistic
+        let chiCalc = 0;
+        let html = '';
+
+        for (let i = 0; i < k; i++) {
+            let O = observed[i];
+            let E = expected;
+            let term = Math.pow(O - E, 2) / E;
+            chiCalc += term;
+
+            let start = (i / k).toFixed(2);
+            let end = ((i + 1) / k).toFixed(2);
+
+            html += `<tr>
+                <td>[${start}, ${end})</td>
+                <td>${O}</td>
+                <td>${E}</td>
+                <td>${term.toFixed(3)}</td>
+            </tr>`;
+        }
+
+        document.querySelector('#chi-table tbody').innerHTML = html;
+
+        // 5. Decision
+        const df = k - 1;
+        let criticalCv = getChiCritical(alpha, df);
+
+        let resDiv = document.getElementById('chi-result');
+        document.getElementById('chi-details').style.display = 'block';
+
+        let msg = `Calculated χ² = <strong>${chiCalc.toFixed(3)}</strong>. (df=${df}, α=${alpha})<br>`;
+
+        if (criticalCv === null) {
+            msg += `<span style="color:orange">Warning: Critical value for df=${df}, alpha=${alpha} not in lookup table. Using generic threshold check needed.</span>`;
+        } else {
+            msg += `Critical Value = <strong>${criticalCv}</strong>.<br>`;
+            if (chiCalc > criticalCv) {
+                msg += `<span style="color:var(--accent-danger)">Reject H₀ (Not Uniform). ${chiCalc.toFixed(3)} > ${criticalCv}</span>`;
+            } else {
+                msg += `<span style="color:var(--accent-success)">Fail to Reject H₀ (Uniform). ${chiCalc.toFixed(3)} <= ${criticalCv}</span>`;
+            }
+        }
+
+        resDiv.innerHTML = msg;
+
+    } catch (e) {
+        let resDiv = document.getElementById('chi-result');
+        resDiv.innerHTML = `<span style="color:var(--accent-danger)">Error: ${e.message}</span>`;
+        console.error(e);
+    }
 }
 
 function runAutocorrelation() {
-    const n = parseInt(document.getElementById('auto-n').value);
-    const k = parseInt(document.getElementById('auto-k').value); // Lag
-    const source = document.getElementById('auto-source').value;
+    try {
+        const nParam = parseInt(document.getElementById('auto-n').value);
+        const k = parseInt(document.getElementById('auto-k').value); // Lag
 
-    let sequence = [];
-
-    if (source === 'lcg') {
-        const a = parseInt(document.getElementById('lcg-a').value);
-        const c = parseInt(document.getElementById('lcg-c').value);
-        const m = parseInt(document.getElementById('lcg-m').value);
-        let z = parseInt(document.getElementById('lcg-seed').value);
-
-        for (let i = 0; i < n; i++) {
-            z = (a * z + c) % m;
-            sequence.push(z / m);
-        }
-    } else {
+        // 1. Parse Input
         const raw = document.getElementById('auto-manual-input').value;
-        sequence = raw.trim().split(/[\s,]+/).filter(x => x !== '').map(parseFloat);
-        if (sequence.length < n) {
-            document.getElementById('auto-result').innerHTML = `<span style="color:red">Error: Input sequence length ${sequence.length} < N (${n}).</span>`;
+        if (!raw.trim()) {
+            document.getElementById('auto-result').innerHTML = `<span style="color:var(--accent-danger)">Error: Please enter random numbers.</span>`;
             return;
         }
-        sequence = sequence.slice(0, n); // Take first N
+
+        let sequence = raw.trim().split(/[\s,]+/).filter(x => x !== '').map(parseFloat);
+
+        // Validation of input
+        if (sequence.some(isNaN)) {
+            document.getElementById('auto-result').innerHTML = `<span style="color:var(--accent-danger)">Error: Invalid numbers in input.</span>`;
+            return;
+        }
+
+        // Limit or validate N
+        // User requested "inputs to be ... total number... update output depend on them"
+        // If we have more numbers than N, slice. If less, error.
+        if (sequence.length < nParam) {
+            document.getElementById('auto-result').innerHTML = `<span style="color:var(--accent-danger)">Error: Input sequence length ${sequence.length} < N (${nParam}).</span>`;
+            return;
+        }
+
+        // Use exact N
+        const N = nParam;
+        const R = sequence.slice(0, N);
+
+        // 2. Build Table & Calculate Sums for specific RNG Autocorrelation Test
+        // Formula often used: Rho_hat = [ (1/(M+1)) * Sum(Ri * Ri+k) ] - 0.25
+        // Where M is such that i+k <= N-1.  Let's stick to the Pearson correlation for general "Independence" 
+        // OR standard Autocorrelation for time series.
+        // Existing code used Variance-based Pearson. We will stick to that for robustness, 
+        // but the TABLE usually shows the terms.
+
+        let tableBody = document.querySelector('#auto-table tbody');
+        tableBody.innerHTML = '';
+
+        let sumX = 0; // sum Ri
+        let sumY = 0; // sum Ri+k
+        let sumXY = 0; // sum Ri * Ri+k
+        let sumXSq = 0;
+        let sumYSq = 0;
+
+        let M = 0; // Count of pairs
+        let html = '';
+
+        // Loop valid pairs
+        // i goes from 0 to N - 1 - k
+        // Indices are 1-based in display (i=1..N-k)
+
+        for (let i = 0; i < N - k; i++) {
+            let val1 = R[i];
+            let val2 = R[i + k];
+
+            let prod = val1 * val2;
+
+            // Stats accumulation
+            sumX += val1;
+            sumY += val2;
+            sumXY += prod;
+            sumXSq += val1 * val1;
+            sumYSq += val2 * val2;
+            M++;
+
+            html += `<tr>
+                <td>${i + 1}</td>
+                <td>${val1}</td>
+                <td>${val2}</td>
+                <td>${prod.toFixed(4)}</td>
+            </tr>`;
+        }
+
+        tableBody.innerHTML = html;
+
+        // 3. Calculation
+        // Pearson r = (M * SumXY - SumX * SumY) / sqrt( [M*SumXSq - (SumX)^2] * [M*SumYSq - (SumY)^2] )
+
+        let numerator = (M * sumXY) - (sumX * sumY);
+        let denomX = (M * sumXSq) - (sumX * sumX);
+        let denomY = (M * sumYSq) - (sumY * sumY);
+
+        let r_kk = 0;
+        if (denomX > 0 && denomY > 0) {
+            r_kk = numerator / Math.sqrt(denomX * denomY);
+        }
+
+        // Z-statistic for RNG (approximate normal for large N)
+        // Standard Deviation of estimator sigma_rho = 1 / sqrt(N)
+        let sigma = 1 / Math.sqrt(N);
+        let Z0 = r_kk / sigma;
+
+        let resultHtml = `
+            <strong>Results (N=${N}, Lag k=${k}, Pairs M=${M}):</strong><br>
+            Sum(R<sub>i</sub> * R<sub>i+k</sub>) = ${sumXY.toFixed(4)}<br>
+            Autocorrelation ($\hat{\rho}_{k}$) = <strong>${r_kk.toFixed(4)}</strong><br>
+            <br>
+            Assuming N is large, $\sigma_\rho \approx \frac{1}{\sqrt{N}} = ${sigma.toFixed(3)}$<br>
+            Statistic $Z_0 = \frac{\hat{\rho}}{\sigma_\rho} = ${Z0.toFixed(3)}$<br>
+            <small style="color:var(--text-muted)">
+                If |Z₀| > 1.96 (for $\alpha=0.05$), Reject Independence.
+            </small>
+        `;
+
+        document.getElementById('auto-result').innerHTML = resultHtml;
+
+    } catch (e) {
+        console.error(e);
+        document.getElementById('auto-result').innerHTML = `<span style="color:var(--accent-danger)">Error: ${e.message}</span>`;
     }
-
-    // 1. Mean
-    let sum = 0;
-    for (let x of sequence) sum += x;
-    let mean = sum / n;
-
-    // 2. Variance (Sx^2)
-    let sumSqDiff = 0;
-    for (let x of sequence) {
-        sumSqDiff += Math.pow(x - mean, 2);
-    }
-    let variance = sumSqDiff / (n - 1);
-    let sx = Math.sqrt(variance);
-
-    // 3. Autocorrelation (rxx(k))
-    // (1/(n-k)) * sum( (xi - mean)*(xi+k - mean) ) / variance
-    // Note: Prompt formula div by (sx * sx) which is variance.
-
-    let numeratorSum = 0;
-    for (let i = 0; i < n - k; i++) {
-        numeratorSum += (sequence[i] - mean) * (sequence[i + k] - mean);
-    }
-
-    let rkk = (1 / (n - k)) * numeratorSum / variance;
-
-    // Display
-    let html = `
-        <strong>Results (N=${n}, Lag k=${k}):</strong><br>
-        Mean ($\bar{x}$) = ${mean.toFixed(4)}<br>
-        Variance ($S_x^2$) = ${variance.toFixed(4)}<br>
-        Autocorrelation ($r_{xx}(k)$) = <strong>${rkk.toFixed(4)}</strong><br>
-        <br>
-        <small style="color:var(--text-muted)">
-            Interpretation: <br>
-            Near 0: Independence.<br>
-            Near 1: Dependence (Positive correlation).<br>
-            Near -1: Dependence (Negative correlation).
-        </small>
-    `;
-    document.getElementById('auto-result').innerHTML = html;
 }
-
-// Ensure toggle for manual input works
-document.addEventListener('DOMContentLoaded', () => {
-    const autoSource = document.getElementById('auto-source');
-    if (autoSource) {
-        autoSource.addEventListener('change', (e) => {
-            document.getElementById('auto-manual-input').style.display = (e.target.value === 'manual') ? 'block' : 'none';
-        });
-    }
-});
 
 // --- 6. PRACTICE ---
 function checkQ1() {

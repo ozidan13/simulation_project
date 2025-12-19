@@ -580,14 +580,23 @@
                     <h2>Random Number Generator (LCG)</h2>
                     <div class="formula">Z<sub>i</sub> = (aZ<sub>i-1</sub> + c) mod m</div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                        <div><label>Mult (a)</label><input type="number" id="lcg-a" value="13"></div>
+                        <div><label>Mult (a)</label><input type="number" id="lcg-a" value="5"></div>
                         <div><label>Inc (c)</label><input type="number" id="lcg-c" value="3"></div>
-                        <div><label>Mod (m)</label><input type="number" id="lcg-m" value="1000"></div>
+                        <div><label>Mod (m)</label><input type="number" id="lcg-m" value="16"></div>
                     </div>
-                    <label>Seed (Z<sub>0</sub>)</label><input type="number" id="lcg-seed" value="50">
+                    <label>Seed (Z<sub>0</sub>)</label><input type="number" id="lcg-seed" value="7">
                     <button class="action-btn" onclick="generateLCG()">Generate Sequence</button>
-                    <div id="lcg-output"
-                        style="margin-top:15px; font-family:'JetBrains Mono', monospace; word-break:break-all; color:var(--accent-purple);">
+                    <div class="table-container" style="max-height: 300px; margin-top:20px;">
+                        <table id="lcg-table">
+                            <thead>
+                                <tr>
+                                    <th>i</th>
+                                    <th>Zi</th>
+                                    <th>Ui</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -595,9 +604,16 @@
                     <h2>1. Uniformity Test (Chi-Square)</h2>
                     <div class="formula">$\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}$</div>
 
+                    <div style="margin-bottom:15px;">
+                        <label>Random Numbers (Ri):</label>
+                        <textarea id="chi-rd-input" rows="3" placeholder="Enter random numbers (0.12, 0.45...)"
+                            style="width:100%; background:rgba(0,0,0,0.2); color:#fff; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; font-family:'JetBrains Mono';">0.10 0.15 0.05 0.18 0.25 0.30 0.35 0.22 0.45 0.50 0.55 0.42 0.65 0.70 0.75 0.62 0.85 0.90 0.95 0.82</textarea>
+                        <small style="color:var(--text-muted)">Space or comma separated. Must match N.</small>
+                    </div>
+
                     <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:15px;">
-                        <div><label>Sample (N)</label><input type="number" id="chi-n" value="100"></div>
-                        <div><label>Subintervals (k)</label><input type="number" id="chi-k" value="10"></div>
+                        <div><label>Sample (N)</label><input type="number" id="chi-n" value="20"></div>
+                        <div><label>Subintervals (k)</label><input type="number" id="chi-k" value="5"></div>
                         <div><label>Alpha (α)</label>
                             <select id="chi-alpha">
                                 <option value="0.10">0.10</option>
@@ -638,10 +654,17 @@
                 <h2>2. Independence Test (Autocorrelation)</h2>
                 <div class="formula">Test for independence between numbers in sequence.</div>
 
+                <div style="margin-bottom:15px;">
+                    <label>Random Numbers (Ri):</label>
+                    <textarea id="auto-manual-input" rows="3" placeholder="Enter sequence (0.12 0.45 ...)"
+                        style="width:100%; background:rgba(0,0,0,0.2); color:#fff; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; font-family:'JetBrains Mono';">0.12 0.01 0.23 0.28 0.89 0.31 0.64 0.28 0.33 0.93</textarea>
+                    <small style="color:var(--text-muted)">Space or comma separated.</small>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
                     <div>
-                        <label>Sample Size (n)</label>
-                        <input type="number" id="auto-n" value="100">
+                        <label>Sample Size (N)</label>
+                        <input type="number" id="auto-n" value="10">
                     </div>
                     <div>
                         <label>Lag (k)</label>
@@ -649,21 +672,25 @@
                     </div>
                 </div>
 
-                <div style="margin-bottom:15px;">
-                    <label>Sequence Source:</label>
-                    <select id="auto-source">
-                        <option value="lcg">Use LCG Output (above)</option>
-                        <option value="manual">Manual Input below</option>
-                    </select>
-                </div>
-
-                <textarea id="auto-manual-input" rows="2" placeholder="Enter sequence (0.12 0.45 ...)"
-                    style="width:100%; background:rgba(0,0,0,0.2); color:#fff; display:none; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; font-family:'JetBrains Mono';"></textarea>
-
-                <button class="action-btn" onclick="runAutocorrelation()" style="margin-top:15px;">Run
+                <button class="action-btn" onclick="runAutocorrelation()" style="margin-top:5px;">Run
                     Autocorrelation</button>
 
                 <div id="auto-result" style="margin-top:15px;"></div>
+
+                <h3 style="margin-top:20px;">Calculation Details</h3>
+                <div class="table-container" style="max-height: 250px;">
+                    <table id="auto-table">
+                        <thead>
+                            <tr>
+                                <th>i</th>
+                                <th>R<sub>i</sub></th>
+                                <th>R<sub>i+k</sub></th>
+                                <th>R<sub>i</sub> × R<sub>i+k</sub></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </section>
     </div>
